@@ -136,7 +136,7 @@ class SignTactic(Tactic):
         if Proposition(self._says) in seq.gamma:
             return set([])
         # cutgoal is the formula that we want to prove in the
-        # left premise of the `cut` appliction
+        # left premise of the `cut` application
         cutgoal = Sequent(seq.gamma, Proposition(self._says))
         # `Sign` requires proving `_iskey` and `_cred`
         # We already checked that these are in the context,
@@ -310,6 +310,72 @@ class OrElseTactic(Tactic):
                 return t_pfs
         return set([])
 
+class CertTactic(Tactic):
+
+    """
+
+    """
+
+    def __init__(self, agent: Agent, pk: Key, CA: Agent, kca: Key):
+        self._ag = agent
+        self._pk = pk
+        self._CA = CA
+        self._kca = kca
+        # _iskey is the formula that we want to introduce in the cut
+        self._iskey = App(Operator.ISKEY, 2, [agent, pk])
+        # _isCA confirms the given CA agent is a CA
+        self._isCA = parse("ca(#ca)")
+        # _CAsays is the formula that CA confirms iskey(agent, pk)
+        self._CAsays = App(Operator.SAYS, 2, [CA, self._iskey])
+        # isCA and CAsays need to be present in the sequent to apply this tactic
+        self._reqs = [
+            Proposition(self._CAsays),
+            Proposition(self._isCA)
+        ]
+
+    def apply(self, seq: Sequent) -> set[Proof]:
+        # print(stringify(seq))
+        # make sure all of the required assumptions are present
+        if not all(p in seq.gamma for p in self._reqs):
+            # if not (self._CAsays in seq.gamma):
+            #     # print("not CA says")
+            # elif not (self._isCA in seq.gamma):
+                # print("not isCA")
+            # print("not all reqs are met")
+            return set([])
+        # if the `iskey` formula is already in the sequent's
+        # assumptions, then there is no need to introduce it
+        # again
+        if Proposition(self._iskey) in seq.gamma:
+            # print("already there")
+            return set([])
+        # cutgoal is the formula that we want to prove in the
+        # left premise of the `cut` application
+        cutgoal = Sequent(seq.gamma, Proposition(self._iskey))
+        # `Cert` requires proving `_isCA` and `_CAsays`
+        # We already checked that these are in the context,
+        # so if we've gotten this far then we know that both
+        # are proved with one application of the identity rule
+        pf_isCA = get_one_proof(Sequent(seq.gamma, Proposition(self._isCA)), RuleTactic(identityRule))
+        pf_CAsays = get_one_proof(Sequent(seq.gamma, Proposition(self._CAsays)), RuleTactic(identityRule))
+        # The left premise of the cut is proved by combining these proofs
+        # using the `Sign` rule
+        pf_cutgoal = Proof([pf_isCA, pf_CAsays], cutgoal, certRule)
+        # The right premise of the cut will copy the assumptions
+        # in the current sequent, and add _iskey
+        new_gamma = (
+            seq.gamma + 
+            [Proposition(self._iskey)]
+        )
+        newgoal = Sequent(new_gamma, seq.delta)
+        # We need to look at the delta (proof goal) of the given sequent
+        # to determine whether to use the version of `cut` for truth
+        # or affirmation judgements
+        whichRule = cutRule if isinstance(seq.delta, Proposition) else affCutRule
+        # Now put everything together and return the proof
+        return set([Proof([pf_cutgoal, newgoal], seq, whichRule)])
+
+
 def chain(pf: Proof, chains: dict[Sequent, Proof]) -> Proof:
     """
     Chain proofs for unclosed branches of a proof into
@@ -388,18 +454,27 @@ def prove(seq: Sequent) -> Optional[Proof]:
     # P -> Q, P |- Q
     t = ThenTactic(
         [
-            RuleTactic(impLeftRule),
-            RuleTactic(identityRule),
-            # RuleTactic(identityRule)
+            SignTactic(parse('sign(iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f])'), Agent('#ca')),
+            CertTactic(Agent('#root'), Key('[2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]'), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]')),
+            SignTactic(parse('sign((open(#pdoan, <pdoan.txt>)), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])'), Agent('#root')),
+            RuleTactic(identityRule)
         ]
     )
     return get_one_proof(seq, t)
 
 if __name__ == '__main__':
 
-    seq = parse('iskey(#a, [pka]), sign(P, [pka]) |- #a says P')
-    t = SignTactic(parse('sign(P, [pka])'), Agent('#a'))
+    # seq = parse('iskey(#a, [pka]), sign(P, [pka]) |- #a says P')
+    # t = SignTactic(parse('sign(P, [pka])'), Agent('#a'))
+    # seq = parse("iskey(#ca, [4c120014db10eade1ab7a14f6745c94067f13bb38e4424c8084c24688a062268db37a08f480f571c90700afae07070c96428965cd19d20d3d2f105231ee60706]), sign((iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])), [4c120014db10eade1ab7a14f6745c94067f13bb38e4424c8084c24688a062268db37a08f480f571c90700afae07070c96428965cd19d20d3d2f105231ee60706]), sign((open(#a, <a.txt>)), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]) |- #root says open(#a, <a.txt>)")
+    # t = SignTactic(parse('sign(iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]), [4c120014db10eade1ab7a14f6745c94067f13bb38e4424c8084c24688a062268db37a08f480f571c90700afae07070c96428965cd19d20d3d2f105231ee60706])'), Agent('#ca'))
+    seq = parse("""ca(#ca), iskey(#ca, [4c120014db10eade1ab7a14f6745c94067f13bb38e4424c8084c24688a062268db37a08f480f571c90700afae07070c96428965cd19d20d3d2f105231ee60706]),                               
+    sign((iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])), [4c120014db10eade1ab7a14f6745c94067f13bb38e4424c8084c24688a062268db37a08f480f571c90700afae07070c96428965cd19d20d3d2f105231ee60706]),
+                                                               sign((open(#a, <a.txt>)), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]),                                                                
+                                                                (#ca says iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]))                                                                  
+                                                                                       |-  (#root says open(#a, <a.txt>))""")
+    t = CertTactic(Agent("#root"), Key("[2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]"), Agent('#ca'), Key('[4c120014db10eade1ab7a14f6745c94067f13bb38e4424c8084c24688a062268db37a08f480f571c90700afae07070c96428965cd19d20d3d2f105231ee60706]'))
     for pf in t.apply(seq):
-        print(stringify(pf))
+        print(stringify(pf, pf_width=50))
 
     pass
