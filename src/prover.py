@@ -452,15 +452,57 @@ def prove(seq: Sequent) -> Optional[Proof]:
             one exists. Otherwise `None`.
     """
     # P -> Q, P |- Q
-    t = ThenTactic(
-        [
-            SignTactic(parse('sign(iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f])'), Agent('#ca')),
-            CertTactic(Agent('#root'), Key('[2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]'), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]')),
-            SignTactic(parse('sign((open(#pdoan, <pdoan.txt>)), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])'), Agent('#root')),
-            RuleTactic(identityRule)
-        ]
-    )
-    return get_one_proof(seq, t)
+    if seq.delta == parse("(#root says open(#pdoan, <pdoan.txt>)) true"):
+        t = ThenTactic(
+            [
+                # Get #ca says iskey(root, pkr)
+                SignTactic(parse('sign(iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f])'), Agent('#ca')),
+                # Get iskey(root, pkr)
+                CertTactic(Agent('#root'), Key('[2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]'), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]')),
+                # Get root says open(#pdoan, <pdoan.txt>)
+                SignTactic(parse('sign((open(#pdoan, <pdoan.txt>)), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])'), Agent('#root')),
+                # Close the proof
+                RuleTactic(identityRule)
+            ]
+        )
+        return get_one_proof(seq, t)
+
+    elif seq.delta == parse("(#root says open(#pdoan, <shared.txt>)) true"):
+
+        t = ThenTactic(
+            [
+                # Get #ca says iskey(root, pkr)
+                SignTactic(parse('sign(iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f])'), Agent('#ca')),
+                # Get iskey(root, pkr)
+                CertTactic(Agent('#root'), Key('[2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]'), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]')),
+                # Get #ca says iskey(mfred, pkm)
+                SignTactic(parse('sign((iskey(#mfredrik, [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f])'), Agent('#ca')),
+                # Get iskey(mfred, pkm)
+                CertTactic(Agent('#mfredrik'), Key('[d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47]'), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]')),
+                # Get #root aff open(#pdoan, <shared.txt>) in delta
+                RuleTactic(saysRightRule),
+                # Get #root says the delegation rule
+                SignTactic(parse("sign(((@A . (((#mfredrik says open(A, <shared.txt>)) -> open(A, <shared.txt>))))), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])"), Agent("#root")),
+                # Get the delegation rule
+                # (@A . (((#mfredrik says open(A, <shared.txt>)) -> open(A, <shared.txt>)))
+                RuleTactic(saysLeftRule),
+                # Use pdoan as x in the for all clause
+                InstantiateForallTactic([Agent("#pdoan")]),
+                # Split the mfred says open() -> open() clause
+                RuleTactic(impLeftAffRule),
+                # Get #mfred says open(<pdoan>, <shared.txt>) in gamma
+                SignTactic(parse("sign((open(#pdoan, <shared.txt>)), [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47])"), Agent("#mfredrik")),
+                # Remove the aff in #root aff open(#pdoan, <shared.txt>)
+                RuleTactic(affRule),
+                # Close the branches
+                RuleTactic(identityRule),
+                SignTactic(parse("sign((open(#pdoan, <shared.txt>)), [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47])"), Agent("#mfredrik")),
+                RuleTactic(identityRule),
+            ]
+        )
+        # print()
+        # print("get_one_proof=", stringify(get_one_proof(seq, t)))
+        return get_one_proof(seq, t)
 
 if __name__ == '__main__':
 
@@ -468,13 +510,52 @@ if __name__ == '__main__':
     # t = SignTactic(parse('sign(P, [pka])'), Agent('#a'))
     # seq = parse("iskey(#ca, [4c120014db10eade1ab7a14f6745c94067f13bb38e4424c8084c24688a062268db37a08f480f571c90700afae07070c96428965cd19d20d3d2f105231ee60706]), sign((iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])), [4c120014db10eade1ab7a14f6745c94067f13bb38e4424c8084c24688a062268db37a08f480f571c90700afae07070c96428965cd19d20d3d2f105231ee60706]), sign((open(#a, <a.txt>)), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]) |- #root says open(#a, <a.txt>)")
     # t = SignTactic(parse('sign(iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]), [4c120014db10eade1ab7a14f6745c94067f13bb38e4424c8084c24688a062268db37a08f480f571c90700afae07070c96428965cd19d20d3d2f105231ee60706])'), Agent('#ca'))
-    seq = parse("""ca(#ca), iskey(#ca, [4c120014db10eade1ab7a14f6745c94067f13bb38e4424c8084c24688a062268db37a08f480f571c90700afae07070c96428965cd19d20d3d2f105231ee60706]),                               
-    sign((iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])), [4c120014db10eade1ab7a14f6745c94067f13bb38e4424c8084c24688a062268db37a08f480f571c90700afae07070c96428965cd19d20d3d2f105231ee60706]),
-                                                               sign((open(#a, <a.txt>)), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]),                                                                
-                                                                (#ca says iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]))                                                                  
-                                                                                       |-  (#root says open(#a, <a.txt>))""")
-    t = CertTactic(Agent("#root"), Key("[2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]"), Agent('#ca'), Key('[4c120014db10eade1ab7a14f6745c94067f13bb38e4424c8084c24688a062268db37a08f480f571c90700afae07070c96428965cd19d20d3d2f105231ee60706]'))
-    for pf in t.apply(seq):
-        print(stringify(pf, pf_width=50))
+    # seq = parse("""ca(#ca), iskey(#ca, [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),                               
+    # sign((iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
+    #                                                            sign((open(#a, <a.txt>)), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]),                                                                
+    #                                                             (#ca says iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]))                                                                  
+    #                                                                                    |-  (#root says open(#a, <a.txt>))""")
+    # t = CertTactic(Agent("#root"), Key("[2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]"), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]'))
+    # for pf in t.apply(seq):
+    #     print(stringify(pf, pf_width=50))
 
+    seq = parse("""ca(#ca) true, iskey(#ca, [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]) true,
+    sign((iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]) true,
+    sign((iskey(#mfredrik, [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]) true,
+    sign(((@A . (((#mfredrik says open(A, <shared.txt>)) -> open(A, <shared.txt>))))), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]) true,
+    sign((open(#pdoan, <shared.txt>)), [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47]) true,
+    sign((open(#mfredrik, <shared.txt>)), [2b:8f:e8:9b]) true |- (#root says open(#pdoan, <shared.txt>)) true""")
+
+    t = ThenTactic(
+            [
+                # Get #ca says iskey(root, pkr)
+                SignTactic(parse('sign(iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f])'), Agent('#ca')),
+                # Get iskey(root, pkr)
+                CertTactic(Agent('#root'), Key('[2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]'), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]')),
+                # Get #ca says iskey(mfred, pkm)
+                SignTactic(parse('sign((iskey(#mfredrik, [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f])'), Agent('#ca')),
+                # Get iskey(mfred, pkm)
+                CertTactic(Agent('#mfredrik'), Key('[d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47]'), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]')),
+                # Get #root aff open(#pdoan, <shared.txt>) in delta
+                RuleTactic(saysRightRule),
+                # Get #root says the delegation rule
+                SignTactic(parse("sign(((@A . (((#mfredrik says open(A, <shared.txt>)) -> open(A, <shared.txt>))))), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])"), Agent("#root")),
+                # Get the delegation rule
+                RuleTactic(saysLeftRule),
+                # Use pdoan as x in the for all clause
+                InstantiateForallTactic([Agent("#pdoan")]),
+                # Split the mfred says open() -> open() clause
+                RuleTactic(impLeftAffRule),
+                # Get #mfred says open(<pdoan>, <shared.txt>) in gamma
+                SignTactic(parse("sign((open(#andrewid, <shared.txt>)), [d3:c6:2a:1b])"), Agent("#mfredrik")),
+                # Remove the aff in #root aff open(#pdoan, <shared.txt>)
+                RuleTactic(affRule),
+                # Close the branches
+                RuleTactic(identityRule),
+            ]
+        )
+    for pf in t.apply(seq):
+        # print()
+        # print("pf =", pf)
+        print(stringify(pf, pf_width=50))
     pass
