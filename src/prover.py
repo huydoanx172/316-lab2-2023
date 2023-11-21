@@ -324,7 +324,7 @@ class CertTactic(Tactic):
         # _iskey is the formula that we want to introduce in the cut
         self._iskey = App(Operator.ISKEY, 2, [agent, pk])
         # _isCA confirms the given CA agent is a CA
-        self._isCA = parse("ca(#ca)")
+        self._isCA = App(Operator.ISCA, 1, [CA])
         # _CAsays is the formula that CA confirms iskey(agent, pk)
         self._CAsays = App(Operator.SAYS, 2, [CA, self._iskey])
         # isCA and CAsays need to be present in the sequent to apply this tactic
@@ -506,8 +506,6 @@ def prove(seq: Sequent) -> Optional[Proof]:
         return get_one_proof(seq, t)
 
     elif seq.delta == parse("(#root says open(#pdoan, <secret.txt>)) true"):
-        print("seq =")
-        print(stringify(seq))
 
         t = ThenTactic(
             [
@@ -614,99 +612,25 @@ if __name__ == '__main__':
     # sign((open(#pdoan, <shared.txt>)), [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47]) |- (#root says open(#pdoan, <secret.txt>))""")
 
     seq = parse("""ca(#ca), iskey(#ca, [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
-    sign((iskey(#mdhamank, [71:14:55:85:b1:59:ae:76:b2:56:4b:36:09:01:f5:3f])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
-    sign((iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
-    sign((iskey(#justinyo, [d2:15:e7:01:be:ef:fa:e6:08:ca:6c:bd:90:f4:1b:af])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
-    sign((iskey(#dsduena, [db:b2:b9:b7:01:83:9c:3e:7d:ac:c4:87:00:cd:79:2f])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
-    sign((iskey(#mfredrik, [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
-    sign((open(#mfredrik, <secret.txt>)), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]),
-    sign(((@A . ((@R . ((open(A, R) -> (@B . (((A says open(B, R)) -> open(B, R)))))))))), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]),
-    sign((open(#mdhamank, <secret.txt>)), [d2:15:e7:01:be:ef:fa:e6:08:ca:6c:bd:90:f4:1b:af]),
-    sign((open(#pdoan, <secret.txt>)), [71:14:55:85:b1:59:ae:76:b2:56:4b:36:09:01:f5:3f]),
-    sign((open(#justinyo, <secret.txt>)), [db:b2:b9:b7:01:83:9c:3e:7d:ac:c4:87:00:cd:79:2f]),
-    sign((open(#dsduena, <secret.txt>)), [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47]) |- (#root says open(#pdoan, <secret.txt>))""")
+    sign((iskey(#pdoan, [f5:52:6c:d3:bb:50:f3:ad:2d:90:7c:21:cc:52:53:f8])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
+    sign((open(#pdoan, <bigsecret.txt>)), [f5:52:6c:d3:bb:50:f3:ad:2d:90:7c:21:cc:52:53:f8]) |- (#root says open(#pdoan, <bigsecret.txt>))""")
 
     t = ThenTactic(
-            [
-                # Get the key certifications in gamma
-                # Get iskey(root, pkr)
-                SignTactic(parse('sign(iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f])'), Agent('#ca')),
-                CertTactic(Agent('#root'), Key('[2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]'), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]')),
-                # Get iskey(mfred, pkm)
-                SignTactic(parse('sign((iskey(#mfredrik, [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f])'), Agent('#ca')),
-                CertTactic(Agent('#mfredrik'), Key('[d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47]'), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]')),
-                # Get iskey(duena, pkd)
-                SignTactic(parse('sign((iskey(#dsduena, [db:b2:b9:b7:01:83:9c:3e:7d:ac:c4:87:00:cd:79:2f])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f])'), Agent('#ca')),
-                CertTactic(Agent('#dsduena'), Key('[db:b2:b9:b7:01:83:9c:3e:7d:ac:c4:87:00:cd:79:2f]'), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]')),
-                # Get iskey(justin, pkj)
-                SignTactic(parse('sign((iskey(#justinyo, [d2:15:e7:01:be:ef:fa:e6:08:ca:6c:bd:90:f4:1b:af])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f])'), Agent('#ca')),
-                CertTactic(Agent('#justinyo'), Key('[d2:15:e7:01:be:ef:fa:e6:08:ca:6c:bd:90:f4:1b:af]'), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]')),
-                # Get iskey(dhamank, pkdh)
-                SignTactic(parse('sign((iskey(#mdhamank, [71:14:55:85:b1:59:ae:76:b2:56:4b:36:09:01:f5:3f])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f])'), Agent('#ca')),
-                CertTactic(Agent('#mdhamank'), Key('[71:14:55:85:b1:59:ae:76:b2:56:4b:36:09:01:f5:3f]'), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]')),
-                
-                # Change the right hand side to aff
-                RuleTactic(saysRightRule),
-
-                # Get the delegation formula by #root in gamma
-                SignTactic(parse("sign(((@A . ((@R . ((open(A, R) -> (@B . (((A says open(B, R)) -> open(B, R)))))))))), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])"), Agent("#root")),
-                RuleTactic(saysLeftRule),
-
-                # Get open(#mfred, <secret.txt>) in gamma
-                SignTactic(parse("sign((open(#mfredrik, <secret.txt>)), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])"), Agent("#root")),
-                RuleTactic(saysLeftRule),
-
-                # Get open(#dsduena, <secret.txt>) in gamma
-                InstantiateForallTactic(set([Agent("#mfredrik")])),
-                InstantiateForallTactic(set([Resource("<secret.txt>")])),
-                RuleTactic(impLeftAffRule),
-                InstantiateForallTactic(set([Agent("#dsduena")])),
-                SignTactic(parse("sign((open(#dsduena, <secret.txt>)), [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47])"), Agent("#mfredrik")),
-                RuleTactic(impLeftAffRule),
-                # RuleTactic(saysLeftRule),
-
-                # Get open(#justinyo, <secret.txt>) in gamma
-                # Get the delegation formula by #root in gamma
-                SignTactic(parse("sign(((@A . ((@R . ((open(A, R) -> (@B . (((A says open(B, R)) -> open(B, R)))))))))), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])"), Agent("#root")),
-                RuleTactic(saysLeftRule),
-                InstantiateForallTactic(set([Agent("#dsduena")])),
-                InstantiateForallTactic(set([Resource("<secret.txt>")])),
-                RuleTactic(impLeftAffRule),
-                InstantiateForallTactic(set([Agent("#justinyo")])),
-                SignTactic(parse("sign((open(#justinyo, <secret.txt>)), [db:b2:b9:b7:01:83:9c:3e:7d:ac:c4:87:00:cd:79:2f])"), Agent("#dsduena")),
-                RuleTactic(impLeftAffRule),
-                # RuleTactic(saysLeftRule),
-
-                # Get open(#mdhamank, <secret.txt>) in gamma
-                # Get the delegation formula by #root in gamma
-                SignTactic(parse("sign(((@A . ((@R . ((open(A, R) -> (@B . (((A says open(B, R)) -> open(B, R)))))))))), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])"), Agent("#root")),
-                RuleTactic(saysLeftRule),
-                InstantiateForallTactic(set([Agent("#justinyo")])),
-                InstantiateForallTactic(set([Resource("<secret.txt>")])),
-                RuleTactic(impLeftAffRule),
-                InstantiateForallTactic(set([Agent("#mdhamank")])),
-                SignTactic(parse("sign((open(#mdhamank, <secret.txt>)), [d2:15:e7:01:be:ef:fa:e6:08:ca:6c:bd:90:f4:1b:af])"), Agent("#justinyo")),
-                RuleTactic(impLeftAffRule),
-                # RuleTactic(saysLeftRule),
-
-                # Get open(#pdoan, <secret.txt>) in gamma
-                # Get the delegation formula by #root in gamma
-                SignTactic(parse("sign(((@A . ((@R . ((open(A, R) -> (@B . (((A says open(B, R)) -> open(B, R)))))))))), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])"), Agent("#root")),
-                RuleTactic(saysLeftRule),
-                InstantiateForallTactic(set([Agent("#mdhamank")])),
-                InstantiateForallTactic(set([Resource("<secret.txt>")])),
-                RuleTactic(impLeftAffRule),
-                InstantiateForallTactic(set([Agent("#pdoan")])),
-                SignTactic(parse("sign((open(#pdoan, <secret.txt>)), [71:14:55:85:b1:59:ae:76:b2:56:4b:36:09:01:f5:3f])"), Agent("#mdhamank")),
-                RuleTactic(impLeftAffRule),
-                # RuleTactic(saysLeftRule),
-
-                RuleTactic(affRule),
-                
-                # Close the branches
-                RuleTactic(identityRule)
-            ]
-        )
+		[
+			# Get iskey(#pdoan, pkp)
+			SignTactic(parse('sign(iskey(#pdoan, [f5:52:6c:d3:bb:50:f3:ad:2d:90:7c:21:cc:52:53:f8]), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f])'), Agent('#ca')),
+			CertTactic(Agent('#pdoan'), Key('[f5:52:6c:d3:bb:50:f3:ad:2d:90:7c:21:cc:52:53:f8]'), Agent('#ca'), Key('[43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]')),
+			# Get #pdoan says open(#pdoan, <bigsecret.txt>)
+			SignTactic(parse('sign((open(#pdoan, <bigsecret.txt>)), [f5:52:6c:d3:bb:50:f3:ad:2d:90:7c:21:cc:52:53:f8])'), Agent('#pdoan')),
+			RuleTactic(saysRightRule),
+			RuleTactic(saysLeftRule),
+            RuleTactic(saysLeftRule),
+            RuleTactic(saysLeftRule),
+			RuleTactic(affRule),
+			RuleTactic(identityRule)
+		]
+	)
+    print(get_one_proof(seq, t))
         
     for pf in t.apply(seq):
         # print()
