@@ -26,7 +26,7 @@ from logic import *
 from verifier import verify
 from proofrules import calculus
 from parser import parse, sequent_parse
-from util import stringify
+from util import stringify, get_cas
 
 @dataclass(eq=True, frozen=True)
 class Credential():
@@ -570,6 +570,7 @@ def verify_request(req: AccessRequest, roots: list[Agent]=[]) -> Optional[Creden
 	"""
 	# First verify all of the certificates sent with the request
 	cert_chain = {cert.agent: cert for cert in req.certs}
+	# print(cert_chain)
 	for cert in req.certs:
 		if not verify_cert(cert, cert_chain, roots):
 			return None
@@ -581,11 +582,15 @@ def verify_request(req: AccessRequest, roots: list[Agent]=[]) -> Optional[Creden
 	# Now check the proof
 	# First construct the sequent context from the credentials and certificates
 	cas = get_cas(req.proof.conclusion)
+
+	# Add the cas and their keys
 	gamma = [Proposition(parse(f'ca({ca.id})')) for ca in cas]
 	gamma += [
 		Proposition(parse(f'iskey({ca.id}, {fingerprint(cert_chain[ca].public_key)})'))
 		for ca in cas
 	]
+
+	# Add the signed formula given by certs and credentials
 	gamma += [Proposition(cert.cred.sign_formula(cert_chain[cert.cred.signator])) for cert in req.certs]
 	gamma += [Proposition(cred.sign_formula(cert_chain[cred.signator])) for cred in req.creds]
 
@@ -597,6 +602,9 @@ def verify_request(req: AccessRequest, roots: list[Agent]=[]) -> Optional[Creden
 			req.proof.rule), 
 		gamma
 	)
+
+	# print("given proof to check by verify_request:")
+	# print(stringify(pf))
 
 	# Finally, verify the proof
 	if len(verify(pf, feedback=False)) > 0:
