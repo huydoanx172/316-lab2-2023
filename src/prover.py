@@ -313,7 +313,31 @@ class OrElseTactic(Tactic):
 class CertTactic(Tactic):
 
     """
+    A tactic for incorporating a signed certificate into
+    assumptions as an iskey(). The iskey() formula
+    obtained by applying the `Cert` rule to `agent`, `pk`, `CA`, and `kca`
+    is incorporated into the context of an application of `Cut`. This results in
+    two branches `T.0` and `T.1`. The premise `T.0` will be a closed proof of
+    iskey(#agent, [pk]) if and only if:
+    - The predicate #CA says iskey(#agent, [pk]) is satisfied.
+    - The predicate ca(#CA) is satisfied.
 
+    The premise `T.1` of the resulting proof will be a sequent
+    (i.e., an open/unclosed premise) with a set of assumptions identical to
+    those in the sequent that the tactic is applied to, but will also include
+    `iskey(#agent, [pk])`.
+
+    If the two conditions listed above are not true of
+    the sequent that the tactic is applied to, then
+    `apply` returns the empty set.
+
+    The proofs returned by this tactic can be closed by
+    combining with other tactics using `ThenTactic`, or
+    by applying other tactics to `pf.premises[1].conclusion`,
+    (assuming `pf` is the returned proof), which will contain
+    the unfinished sequent with the new `iskey()` in its
+    assumption, and chaining the two proofs together with
+    `chain`.
     """
 
     def __init__(self, agent: Agent, pk: Key, CA: Agent, kca: Key):
@@ -453,6 +477,7 @@ def prove(seq: Sequent) -> Optional[Proof]:
     """
     # P -> Q, P |- Q
     if seq.delta == parse("(#root says open(#pdoan, <pdoan.txt>)) true"):
+        # The first proof goal
         t = ThenTactic(
             [
                 # Get #ca says iskey(root, pkr)
@@ -468,7 +493,7 @@ def prove(seq: Sequent) -> Optional[Proof]:
         return get_one_proof(seq, t)
 
     elif seq.delta == parse("(#root says open(#pdoan, <shared.txt>)) true"):
-
+        # The second proof goal
         t = ThenTactic(
             [
                 # Get #ca says iskey(root, pkr)
@@ -501,12 +526,11 @@ def prove(seq: Sequent) -> Optional[Proof]:
                 RuleTactic(identityRule),
             ]
         )
-        # print()
-        # print("get_one_proof=", stringify(get_one_proof(seq, t)))
+
         return get_one_proof(seq, t)
 
     elif seq.delta == parse("(#root says open(#pdoan, <secret.txt>)) true"):
-
+        # The third proof goal
         t = ThenTactic(
             [
                 # Get the key certifications in gamma
@@ -592,25 +616,7 @@ def prove(seq: Sequent) -> Optional[Proof]:
         return get_one_proof(seq, t)
 
 if __name__ == '__main__':
-
-    # seq = parse("""ca(#ca), iskey(#ca, [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
-    # sign((iskey(#mdhamank, [71:14:55:85:b1:59:ae:76:b2:56:4b:36:09:01:f5:3f])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
-    # sign((iskey(#root, [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
-    # sign((iskey(#justinyo, [d2:15:e7:01:be:ef:fa:e6:08:ca:6c:bd:90:f4:1b:af])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
-    # sign((iskey(#dsduena, [db:b2:b9:b7:01:83:9c:3e:7d:ac:c4:87:00:cd:79:2f])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
-    # sign((iskey(#mfredrik, [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
-    # sign((open(#siruih, <secret.txt>)), [71:14:55:85:b1:59:ae:76:b2:56:4b:36:09:01:f5:3f]),
-    # sign((open(#mfredrik, <secret.txt>)), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]),
-    # sign(((@A . ((@R . ((open(A, R) -> (@B . (((A says open(B, R)) -> open(B, R)))))))))), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]),
-    # sign((open(#mdhamank, <secret.txt>)), [d2:15:e7:01:be:ef:fa:e6:08:ca:6c:bd:90:f4:1b:af]),
-    # sign((open(#pdoan, <secret.txt>)), [71:14:55:85:b1:59:ae:76:b2:56:4b:36:09:01:f5:3f]),
-    # sign((open(#pdoan, <pdoan.txt>)), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]),
-    # sign((open(#mfredrik, <shared.txt>)), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]),
-    # sign((open(#justinyo, <secret.txt>)), [db:b2:b9:b7:01:83:9c:3e:7d:ac:c4:87:00:cd:79:2f]),
-    # sign(((@A . (((#mfredrik says open(A, <shared.txt>)) -> open(A, <shared.txt>))))), [2b:8f:e8:9b:8b:76:37:a7:3b:7e:85:49:9d:87:7b:3b]),
-    # sign((open(#dsduena, <secret.txt>)), [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47]),
-    # sign((open(#pdoan, <shared.txt>)), [d3:c6:2a:1b:63:20:f9:75:fd:1b:ec:fc:ad:19:f1:47]) |- (#root says open(#pdoan, <secret.txt>))""")
-
+    # Testing implementation of prove()
     seq = parse("""ca(#ca), iskey(#ca, [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
     sign((iskey(#pdoan, [f5:52:6c:d3:bb:50:f3:ad:2d:90:7c:21:cc:52:53:f8])), [43:c9:43:e6:28:37:ec:23:1a:bc:83:c6:eb:87:e8:6f]),
     sign((open(#pdoan, <bigsecret.txt>)), [f5:52:6c:d3:bb:50:f3:ad:2d:90:7c:21:cc:52:53:f8]) |- (#root says open(#pdoan, <bigsecret.txt>))""")
